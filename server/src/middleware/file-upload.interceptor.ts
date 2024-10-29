@@ -7,18 +7,17 @@ import multer, { StorageEngine, diskStorage } from 'multer';
 import { createHash, randomUUID } from 'node:crypto';
 import { Observable } from 'rxjs';
 import { UploadFieldName } from 'src/dtos/asset-media.dto';
+import { RouteKey } from 'src/enum';
 import { ILoggerRepository } from 'src/interfaces/logger.interface';
 import { AuthRequest } from 'src/middleware/auth.guard';
-import { UploadFile } from 'src/services/asset-media.service';
-import { AssetService } from 'src/services/asset.service';
+import { AssetMediaService, UploadFile } from 'src/services/asset-media.service';
 
 export interface UploadFiles {
   assetData: ImmichFile[];
-  livePhotoData?: ImmichFile[];
   sidecarData: ImmichFile[];
 }
 
-export function getFile(files: UploadFiles, property: 'assetData' | 'livePhotoData' | 'sidecarData') {
+export function getFile(files: UploadFiles, property: 'assetData' | 'sidecarData') {
   const file = files[property]?.[0];
   return file ? mapToUploadFile(file) : file;
 }
@@ -26,14 +25,8 @@ export function getFile(files: UploadFiles, property: 'assetData' | 'livePhotoDa
 export function getFiles(files: UploadFiles) {
   return {
     file: getFile(files, 'assetData') as UploadFile,
-    livePhotoFile: getFile(files, 'livePhotoData'),
     sidecarFile: getFile(files, 'sidecarData'),
   };
-}
-
-export enum Route {
-  ASSET = 'asset',
-  USER = 'users',
 }
 
 export interface ImmichFile extends Express.Multer.File {
@@ -87,7 +80,7 @@ export class FileUploadInterceptor implements NestInterceptor {
 
   constructor(
     private reflect: Reflector,
-    private assetService: AssetService,
+    private assetService: AssetMediaService,
     @Inject(ILoggerRepository) private logger: ILoggerRepository,
   ) {
     this.logger.setContext(FileUploadInterceptor.name);
@@ -109,7 +102,6 @@ export class FileUploadInterceptor implements NestInterceptor {
       userProfile: instance.single(UploadFieldName.PROFILE_DATA),
       assetUpload: instance.fields([
         { name: UploadFieldName.ASSET_DATA, maxCount: 1 },
-        { name: UploadFieldName.LIVE_PHOTO_DATA, maxCount: 1 },
         { name: UploadFieldName.SIDECAR_DATA, maxCount: 1 },
       ]),
     };
@@ -119,7 +111,7 @@ export class FileUploadInterceptor implements NestInterceptor {
     const context_ = context.switchToHttp();
     const route = this.reflect.get<string>(PATH_METADATA, context.getClass());
 
-    const handler: RequestHandler | null = this.getHandler(route as Route);
+    const handler: RequestHandler | null = this.getHandler(route as RouteKey);
     if (handler) {
       await new Promise<void>((resolve, reject) => {
         const next: NextFunction = (error) => (error ? reject(transformException(error)) : resolve());
@@ -172,8 +164,7 @@ export class FileUploadInterceptor implements NestInterceptor {
 
   private isAssetUploadFile(file: Express.Multer.File) {
     switch (file.fieldname as UploadFieldName) {
-      case UploadFieldName.ASSET_DATA:
-      case UploadFieldName.LIVE_PHOTO_DATA: {
+      case UploadFieldName.ASSET_DATA: {
         return true;
       }
     }
@@ -181,13 +172,13 @@ export class FileUploadInterceptor implements NestInterceptor {
     return false;
   }
 
-  private getHandler(route: Route) {
+  private getHandler(route: RouteKey) {
     switch (route) {
-      case Route.ASSET: {
+      case RouteKey.ASSET: {
         return this.handlers.assetUpload;
       }
 
-      case Route.USER: {
+      case RouteKey.USER: {
         return this.handlers.userProfile;
       }
 

@@ -26,7 +26,7 @@ class SystemConfigMachineLearningDto {
 
   bool enabled;
 
-  RecognitionConfig facialRecognition;
+  FacialRecognitionConfig facialRecognition;
 
   String url;
 
@@ -64,6 +64,7 @@ class SystemConfigMachineLearningDto {
   /// [value] if it's a [Map], null otherwise.
   // ignore: prefer_constructors_over_static_methods
   static SystemConfigMachineLearningDto? fromJson(dynamic value) {
+    upgradeDto(value, "SystemConfigMachineLearningDto");
     if (value is Map) {
       final json = value.cast<String, dynamic>();
 
@@ -71,7 +72,7 @@ class SystemConfigMachineLearningDto {
         clip: CLIPConfig.fromJson(json[r'clip'])!,
         duplicateDetection: DuplicateDetectionConfig.fromJson(json[r'duplicateDetection'])!,
         enabled: mapValueOfType<bool>(json, r'enabled')!,
-        facialRecognition: RecognitionConfig.fromJson(json[r'facialRecognition'])!,
+        facialRecognition: FacialRecognitionConfig.fromJson(json[r'facialRecognition'])!,
         url: mapValueOfType<String>(json, r'url')!,
       );
     }

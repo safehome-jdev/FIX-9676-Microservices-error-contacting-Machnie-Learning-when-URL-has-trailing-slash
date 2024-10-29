@@ -28,7 +28,8 @@ FROM
       "LibraryEntity__LibraryEntity_owner"."status" AS "LibraryEntity__LibraryEntity_owner_status",
       "LibraryEntity__LibraryEntity_owner"."updatedAt" AS "LibraryEntity__LibraryEntity_owner_updatedAt",
       "LibraryEntity__LibraryEntity_owner"."quotaSizeInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaSizeInBytes",
-      "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes"
+      "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes",
+      "LibraryEntity__LibraryEntity_owner"."profileChangedAt" AS "LibraryEntity__LibraryEntity_owner_profileChangedAt"
     FROM
       "libraries" "LibraryEntity"
       LEFT JOIN "users" "LibraryEntity__LibraryEntity_owner" ON "LibraryEntity__LibraryEntity_owner"."id" = "LibraryEntity"."ownerId"
@@ -43,36 +44,6 @@ ORDER BY
   "LibraryEntity_id" ASC
 LIMIT
   1
-
--- LibraryRepository.existsByName
-SELECT
-  1 AS "row_exists"
-FROM
-  (
-    SELECT
-      1 AS dummy_column
-  ) "dummy_table"
-WHERE
-  EXISTS (
-    SELECT
-      1
-    FROM
-      "libraries" "LibraryEntity"
-    WHERE
-      ((("LibraryEntity"."name" = $1)))
-      AND ("LibraryEntity"."deletedAt" IS NULL)
-  )
-LIMIT
-  1
-
--- LibraryRepository.getCountForUser
-SELECT
-  COUNT(1) AS "cnt"
-FROM
-  "libraries" "LibraryEntity"
-WHERE
-  ((("LibraryEntity"."ownerId" = $1)))
-  AND ("LibraryEntity"."deletedAt" IS NULL)
 
 -- LibraryRepository.getAll
 SELECT
@@ -98,7 +69,8 @@ SELECT
   "LibraryEntity__LibraryEntity_owner"."status" AS "LibraryEntity__LibraryEntity_owner_status",
   "LibraryEntity__LibraryEntity_owner"."updatedAt" AS "LibraryEntity__LibraryEntity_owner_updatedAt",
   "LibraryEntity__LibraryEntity_owner"."quotaSizeInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaSizeInBytes",
-  "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes"
+  "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes",
+  "LibraryEntity__LibraryEntity_owner"."profileChangedAt" AS "LibraryEntity__LibraryEntity_owner_profileChangedAt"
 FROM
   "libraries" "LibraryEntity"
   LEFT JOIN "users" "LibraryEntity__LibraryEntity_owner" ON "LibraryEntity__LibraryEntity_owner"."id" = "LibraryEntity"."ownerId"
@@ -134,7 +106,8 @@ SELECT
   "LibraryEntity__LibraryEntity_owner"."status" AS "LibraryEntity__LibraryEntity_owner_status",
   "LibraryEntity__LibraryEntity_owner"."updatedAt" AS "LibraryEntity__LibraryEntity_owner_updatedAt",
   "LibraryEntity__LibraryEntity_owner"."quotaSizeInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaSizeInBytes",
-  "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes"
+  "LibraryEntity__LibraryEntity_owner"."quotaUsageInBytes" AS "LibraryEntity__LibraryEntity_owner_quotaUsageInBytes",
+  "LibraryEntity__LibraryEntity_owner"."profileChangedAt" AS "LibraryEntity__LibraryEntity_owner_profileChangedAt"
 FROM
   "libraries" "LibraryEntity"
   LEFT JOIN "users" "LibraryEntity__LibraryEntity_owner" ON "LibraryEntity__LibraryEntity_owner"."id" = "LibraryEntity"."ownerId"
@@ -175,28 +148,3 @@ WHERE
   AND ("libraries"."deletedAt" IS NULL)
 GROUP BY
   "libraries"."id"
-
--- LibraryRepository.getOnlineAssetPaths
-SELECT
-  "assets"."originalPath" AS "assets_originalPath"
-FROM
-  "libraries" "library"
-  INNER JOIN "assets" "assets" ON "assets"."libraryId" = "library"."id"
-  AND ("assets"."deletedAt" IS NULL)
-WHERE
-  (
-    "library"."id" = $1
-    AND "assets"."isOffline" = false
-  )
-  AND ("library"."deletedAt" IS NULL)
-
--- LibraryRepository.getAssetIds
-SELECT
-  "assets"."id" AS "assets_id"
-FROM
-  "libraries" "library"
-  INNER JOIN "assets" "assets" ON "assets"."libraryId" = "library"."id"
-  AND ("assets"."deletedAt" IS NULL)
-WHERE
-  ("library"."id" = $1)
-  AND ("library"."deletedAt" IS NULL)

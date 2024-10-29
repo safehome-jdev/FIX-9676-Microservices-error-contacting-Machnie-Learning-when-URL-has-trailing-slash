@@ -3,7 +3,8 @@
   import type { AssetInteractionStore } from '$lib/stores/asset-interaction.store';
   import { type AssetStore, isSelectingAllAssets } from '$lib/stores/assets.store';
   import { mdiSelectAll, mdiSelectRemove } from '@mdi/js';
-  import { selectAllAssets } from '$lib/utils/asset-utils';
+  import { selectAllAssets, cancelMultiselect } from '$lib/utils/asset-utils';
+  import { t } from 'svelte-i18n';
 
   export let assetStore: AssetStore;
   export let assetInteractionStore: AssetInteractionStore;
@@ -13,13 +14,12 @@
   };
 
   const handleCancel = () => {
-    $isSelectingAllAssets = false;
-    assetInteractionStore.clearMultiselect();
+    cancelMultiselect(assetInteractionStore);
   };
 </script>
 
 {#if $isSelectingAllAssets}
-  <CircleIconButton title="Unselect all" icon={mdiSelectRemove} on:click={handleCancel} />
+  <CircleIconButton title={$t('unselect_all')} icon={mdiSelectRemove} on:click={handleCancel} />
 {:else}
-  <CircleIconButton title="Select all" icon={mdiSelectAll} on:click={handleSelectAll} />
+  <CircleIconButton title={$t('select_all')} icon={mdiSelectAll} on:click={handleSelectAll} />
 {/if}

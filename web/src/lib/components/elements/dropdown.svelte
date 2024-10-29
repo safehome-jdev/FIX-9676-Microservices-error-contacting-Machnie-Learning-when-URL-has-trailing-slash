@@ -19,15 +19,9 @@
   import LinkButton from './buttons/link-button.svelte';
   import { clickOutside } from '$lib/actions/click-outside';
   import { fly } from 'svelte/transition';
-  import { createEventDispatcher } from 'svelte';
 
   let className = '';
   export { className as class };
-
-  const dispatch = createEventDispatcher<{
-    select: T;
-    'click-outside': void;
-  }>();
 
   export let options: T[];
   export let selectedOption = options[0];
@@ -35,6 +29,8 @@
   export let controlable = false;
   export let hideTextOnSmallScreen = true;
   export let title: string | undefined = undefined;
+  export let onSelect: (option: T) => void;
+  export let onClickOutside: () => void = () => {};
 
   export let render: (item: T) => string | RenderedOption = String;
 
@@ -43,11 +39,11 @@
       showMenu = false;
     }
 
-    dispatch('click-outside');
+    onClickOutside();
   };
 
   const handleSelectOption = (option: T) => {
-    dispatch('select', option);
+    onSelect(option);
     selectedOption = option;
 
     showMenu = false;
@@ -72,7 +68,7 @@
   $: renderedSelectedOption = renderOption(selectedOption);
 </script>
 
-<div use:clickOutside on:outclick={handleClickOutside} on:escape={handleClickOutside}>
+<div use:clickOutside={{ onOutclick: handleClickOutside, onEscape: handleClickOutside }}>
   <!-- BUTTON TITLE -->
   <LinkButton on:click={() => (showMenu = true)} fullwidth {title}>
     <div class="flex place-items-center gap-2 text-sm">
@@ -93,6 +89,7 @@
         {@const renderedOption = renderOption(option)}
         {@const buttonStyle = renderedOption.disabled ? '' : 'transition-all hover:bg-gray-300 dark:hover:bg-gray-800'}
         <button
+          type="button"
           class="grid grid-cols-[36px,1fr] place-items-center p-2 disabled:opacity-40 {buttonStyle}"
           disabled={renderedOption.disabled}
           on:click={() => !renderedOption.disabled && handleSelectOption(option)}

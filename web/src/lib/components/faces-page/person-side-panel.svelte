@@ -7,25 +7,31 @@
   import { handleError } from '$lib/utils/handle-error';
   import { getPersonNameWithHiddenValue } from '$lib/utils/person';
   import {
-    AssetTypeEnum,
     createPerson,
     getAllPeople,
     getFaces,
     reassignFacesById,
+    AssetTypeEnum,
     type AssetFaceResponseDto,
     type PersonResponseDto,
   } from '@immich/sdk';
-  import { mdiArrowLeftThin, mdiMinus, mdiRestart } from '@mdi/js';
-  import { createEventDispatcher, onMount } from 'svelte';
+  import Icon from '$lib/components/elements/icon.svelte';
+  import { mdiAccountOff, mdiArrowLeftThin, mdiPencil, mdiRestart } from '@mdi/js';
+  import { onMount } from 'svelte';
   import { linear } from 'svelte/easing';
   import { fly } from 'svelte/transition';
   import ImageThumbnail from '../assets/thumbnail/image-thumbnail.svelte';
   import { NotificationType, notificationController } from '../shared-components/notification/notification';
   import AssignFaceSidePanel from './assign-face-side-panel.svelte';
   import CircleIconButton from '$lib/components/elements/buttons/circle-icon-button.svelte';
+  import { zoomImageToBase64 } from '$lib/utils/people-utils';
+  import { photoViewer } from '$lib/stores/assets.store';
+  import { t } from 'svelte-i18n';
 
   export let assetId: string;
   export let assetType: AssetTypeEnum;
+  export let onClose: () => void;
+  export let onRefresh: () => void;
 
   // keep track of the changes
   let peopleToCreate: string[] = [];
@@ -35,7 +41,6 @@
   let peopleWithFaces: AssetFaceResponseDto[] = [];
   let selectedPersonToReassign: Record<string, PersonResponseDto> = {};
   let selectedPersonToCreate: Record<string, string> = {};
-  let editedPerson: PersonResponseDto;
   let editedFace: AssetFaceResponseDto;
 
   // loading spinners
@@ -52,11 +57,6 @@
 
   const thumbnailWidth = '90px';
 
-  const dispatch = createEventDispatcher<{
-    close: void;
-    refresh: void;
-  }>();
-
   async function loadPeople() {
     const timeout = setTimeout(() => (isShowLoadingPeople = true), timeBeforeShowLoadingSpinner);
     try {
@@ -64,7 +64,7 @@
       allPeople = people;
       peopleWithFaces = await getFaces({ id: assetId });
     } catch (error) {
-      handleError(error, "Can't get faces");
+      handleError(error, $t('errors.cant_get_faces'));
     } finally {
       clearTimeout(timeout);
     }
@@ -81,7 +81,7 @@
     ) {
       clearTimeout(loaderLoadingDoneTimeout);
       clearTimeout(automaticRefreshTimeout);
-      dispatch('refresh');
+      onRefresh();
     }
   };
 
@@ -92,10 +92,6 @@
 
   const isEqual = (a: string[], b: string[]): boolean => {
     return b.every((valueB) => a.includes(valueB));
-  };
-
-  const handleBackButton = () => {
-    dispatch('close');
   };
 
   const handleReset = (id: string) => {
@@ -138,20 +134,20 @@
         }
 
         notificationController.show({
-          message: `Edited ${numberOfChanges} ${numberOfChanges > 1 ? 'people' : 'person'}`,
+          message: $t('people_edits_count', { values: { count: numberOfChanges } }),
           type: NotificationType.Info,
         });
       } catch (error) {
-        handleError(error, "Can't apply changes");
+        handleError(error, $t('errors.cant_apply_changes'));
       }
     }
 
     isShowLoadingDone = false;
     if (peopleToCreate.length === 0) {
       clearTimeout(loaderLoadingDoneTimeout);
-      dispatch('refresh');
+      onRefresh();
     } else {
-      automaticRefreshTimeout = setTimeout(() => dispatch('refresh'), 15_000);
+      automaticRefreshTimeout = setTimeout(onRefresh, 15_000);
     }
   };
 
@@ -170,11 +166,8 @@
   };
 
   const handleFacePicker = (face: AssetFaceResponseDto) => {
-    if (face.person) {
-      editedFace = face;
-      editedPerson = face.person;
-      showSelectedFaces = true;
-    }
+    editedFace = face;
+    showSelectedFaces = true;
   };
 </script>
 
@@ -184,15 +177,16 @@
 >
   <div class="flex place-items-center justify-between gap-2">
     <div class="flex items-center gap-2">
-      <CircleIconButton icon={mdiArrowLeftThin} title="Back" on:click={handleBackButton} />
-      <p class="flex text-lg text-immich-fg dark:text-immich-dark-fg">Edit faces</p>
+      <CircleIconButton icon={mdiArrowLeftThin} title={$t('back')} on:click={onClose} />
+      <p class="flex text-lg text-immich-fg dark:text-immich-dark-fg">{$t('edit_faces')}</p>
     </div>
     {#if !isShowLoadingDone}
       <button
+        type="button"
         class="justify-self-end rounded-lg p-2 hover:bg-immich-dark-primary hover:dark:bg-immich-dark-primary/50"
         on:click={() => handleEditFaces()}
       >
-        Done
+        {$t('done')}
       </button>
     {:else}
       <LoadingSpinner />
@@ -207,91 +201,121 @@
         </div>
       {:else}
         {#each peopleWithFaces as face, index}
-          {#if face.person}
-            <div class="relative z-[20001] h-[115px] w-[95px]">
-              <div
-                role="button"
-                tabindex={index}
-                class="absolute left-0 top-0 h-[90px] w-[90px] cursor-default"
-                on:focus={() => ($boundingBoxesArray = [peopleWithFaces[index]])}
-                on:mouseover={() => ($boundingBoxesArray = [peopleWithFaces[index]])}
-                on:mouseleave={() => ($boundingBoxesArray = [])}
-              >
-                <div class="relative">
-                  {#if selectedPersonToCreate[face.id]}
+          {@const personName = face.person ? face.person?.name : $t('face_unassigned')}
+          <div class="relative z-[20001] h-[115px] w-[95px]">
+            <div
+              role="button"
+              tabindex={index}
+              class="absolute left-0 top-0 h-[90px] w-[90px] cursor-default"
+              on:focus={() => ($boundingBoxesArray = [peopleWithFaces[index]])}
+              on:mouseover={() => ($boundingBoxesArray = [peopleWithFaces[index]])}
+              on:mouseleave={() => ($boundingBoxesArray = [])}
+            >
+              <div class="relative">
+                {#if selectedPersonToCreate[face.id]}
+                  <ImageThumbnail
+                    curve
+                    shadow
+                    url={selectedPersonToCreate[face.id]}
+                    altText={$t('new_person')}
+                    title={$t('new_person')}
+                    widthStyle={thumbnailWidth}
+                    heightStyle={thumbnailWidth}
+                  />
+                {:else if selectedPersonToReassign[face.id]}
+                  <ImageThumbnail
+                    curve
+                    shadow
+                    url={getPeopleThumbnailUrl(selectedPersonToReassign[face.id])}
+                    altText={selectedPersonToReassign[face.id].name}
+                    title={$getPersonNameWithHiddenValue(
+                      selectedPersonToReassign[face.id].name,
+                      selectedPersonToReassign[face.id]?.isHidden,
+                    )}
+                    widthStyle={thumbnailWidth}
+                    heightStyle={thumbnailWidth}
+                    hidden={selectedPersonToReassign[face.id].isHidden}
+                  />
+                {:else if face.person}
+                  <ImageThumbnail
+                    curve
+                    shadow
+                    url={getPeopleThumbnailUrl(face.person)}
+                    altText={face.person.name}
+                    title={$getPersonNameWithHiddenValue(face.person.name, face.person.isHidden)}
+                    widthStyle={thumbnailWidth}
+                    heightStyle={thumbnailWidth}
+                    hidden={face.person.isHidden}
+                  />
+                {:else}
+                  {#await zoomImageToBase64(face, assetId, assetType, $photoViewer)}
                     <ImageThumbnail
                       curve
                       shadow
-                      url={selectedPersonToCreate[face.id]}
-                      altText={selectedPersonToCreate[face.id]}
-                      title={'New person'}
-                      widthStyle={thumbnailWidth}
-                      heightStyle={thumbnailWidth}
+                      url="/src/lib/assets/no-thumbnail.png"
+                      altText={$t('face_unassigned')}
+                      title={$t('face_unassigned')}
+                      widthStyle="90px"
+                      heightStyle="90px"
                     />
-                  {:else if selectedPersonToReassign[face.id]}
+                  {:then data}
                     <ImageThumbnail
                       curve
                       shadow
-                      url={getPeopleThumbnailUrl(selectedPersonToReassign[face.id].id)}
-                      altText={selectedPersonToReassign[face.id]?.name || selectedPersonToReassign[face.id].id}
-                      title={getPersonNameWithHiddenValue(
-                        selectedPersonToReassign[face.id].name,
-                        face.person?.isHidden,
-                      )}
-                      widthStyle={thumbnailWidth}
-                      heightStyle={thumbnailWidth}
-                      hidden={selectedPersonToReassign[face.id].isHidden}
+                      url={data === null ? '/src/lib/assets/no-thumbnail.png' : data}
+                      altText={$t('face_unassigned')}
+                      title={$t('face_unassigned')}
+                      widthStyle="90px"
+                      heightStyle="90px"
                     />
-                  {:else}
-                    <ImageThumbnail
-                      curve
-                      shadow
-                      url={getPeopleThumbnailUrl(face.person.id)}
-                      altText={face.person.name || face.person.id}
-                      title={getPersonNameWithHiddenValue(face.person.name, face.person.isHidden)}
-                      widthStyle={thumbnailWidth}
-                      heightStyle={thumbnailWidth}
-                      hidden={face.person.isHidden}
-                    />
-                  {/if}
-                </div>
-
-                {#if !selectedPersonToCreate[face.id]}
-                  <p class="relative mt-1 truncate font-medium" title={face.person?.name}>
-                    {#if selectedPersonToReassign[face.id]?.id}
-                      {selectedPersonToReassign[face.id]?.name}
-                    {:else}
-                      {face.person?.name}
-                    {/if}
-                  </p>
+                  {/await}
                 {/if}
+              </div>
 
-                <div class="absolute -right-[5px] -top-[5px] h-[20px] w-[20px] rounded-full">
-                  {#if selectedPersonToCreate[face.id] || selectedPersonToReassign[face.id]}
-                    <CircleIconButton
-                      color="primary"
-                      icon={mdiRestart}
-                      title="Reset"
-                      size="18"
-                      padding="1"
-                      class="absolute left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] transform"
-                      on:click={() => handleReset(face.id)}
-                    />
+              {#if !selectedPersonToCreate[face.id]}
+                <p class="relative mt-1 truncate font-medium" title={personName}>
+                  {#if selectedPersonToReassign[face.id]?.id}
+                    {selectedPersonToReassign[face.id]?.name}
                   {:else}
-                    <CircleIconButton
-                      color="primary"
-                      icon={mdiMinus}
-                      title="Select new face"
-                      size="18"
-                      padding="1"
-                      class="absolute left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] transform"
-                      on:click={() => handleFacePicker(face)}
-                    />
+                    <span class={personName === $t('face_unassigned') ? 'dark:text-gray-500' : ''}>{personName}</span>
                   {/if}
-                </div>
+                </p>
+              {/if}
+
+              <div class="absolute -right-[5px] -top-[5px] h-[20px] w-[20px] rounded-full">
+                {#if selectedPersonToCreate[face.id] || selectedPersonToReassign[face.id]}
+                  <CircleIconButton
+                    color="primary"
+                    icon={mdiRestart}
+                    title={$t('reset')}
+                    size="18"
+                    padding="1"
+                    class="absolute left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] transform"
+                    on:click={() => handleReset(face.id)}
+                  />
+                {:else}
+                  <CircleIconButton
+                    color="primary"
+                    icon={mdiPencil}
+                    title={$t('select_new_face')}
+                    size="18"
+                    padding="1"
+                    class="absolute left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] transform"
+                    on:click={() => handleFacePicker(face)}
+                  />
+                {/if}
+              </div>
+              <div class="absolute right-[25px] -top-[5px] h-[20px] w-[20px] rounded-full">
+                {#if !selectedPersonToCreate[face.id] && !selectedPersonToReassign[face.id] && !face.person}
+                  <div
+                    class="flex place-content-center place-items-center rounded-full bg-[#d3d3d3] p-1 transition-all absolute left-1/2 top-1/2 translate-x-[-50%] translate-y-[-50%] transform"
+                  >
+                    <Icon color="primary" path={mdiAccountOff} ariaHidden size="18" />
+                  </div>
+                {/if}
               </div>
             </div>
-          {/if}
+          </div>
         {/each}
       {/if}
     </div>
@@ -300,13 +324,12 @@
 
 {#if showSelectedFaces}
   <AssignFaceSidePanel
-    {peopleWithFaces}
     {allPeople}
-    {editedPerson}
-    {assetType}
+    {editedFace}
     {assetId}
-    on:close={() => (showSelectedFaces = false)}
-    on:createPerson={(event) => handleCreatePerson(event.detail)}
-    on:reassign={(event) => handleReassignFace(event.detail)}
+    {assetType}
+    onClose={() => (showSelectedFaces = false)}
+    onCreatePerson={handleCreatePerson}
+    onReassign={handleReassignFace}
   />
 {/if}

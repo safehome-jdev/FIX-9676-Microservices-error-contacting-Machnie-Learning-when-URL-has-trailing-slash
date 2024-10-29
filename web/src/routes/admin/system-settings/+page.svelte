@@ -4,6 +4,7 @@
   import FFmpegSettings from '$lib/components/admin-page/settings/ffmpeg/ffmpeg-settings.svelte';
   import ImageSettings from '$lib/components/admin-page/settings/image/image-settings.svelte';
   import JobSettings from '$lib/components/admin-page/settings/job-settings/job-settings.svelte';
+  import MetadataSettings from '$lib/components/admin-page/settings/metadata-settings/metadata-settings.svelte';
   import LibrarySettings from '$lib/components/admin-page/settings/library-settings/library-settings.svelte';
   import LoggingSettings from '$lib/components/admin-page/settings/logging-settings/logging-settings.svelte';
   import MachineLearningSettings from '$lib/components/admin-page/settings/machine-learning-settings/machine-learning-settings.svelte';
@@ -26,30 +27,40 @@
   import { copyToClipboard } from '$lib/utils';
   import { downloadBlob } from '$lib/utils/asset-utils';
   import type { SystemConfigDto } from '@immich/sdk';
-  import { mdiAlert, mdiContentCopy, mdiDownload, mdiUpload } from '@mdi/js';
+  import {
+    mdiAccountOutline,
+    mdiAlert,
+    mdiBellOutline,
+    mdiBookshelf,
+    mdiContentCopy,
+    mdiDatabaseOutline,
+    mdiDownload,
+    mdiFileDocumentOutline,
+    mdiFolderOutline,
+    mdiImageOutline,
+    mdiLockOutline,
+    mdiMapMarkerOutline,
+    mdiPaletteOutline,
+    mdiRobotOutline,
+    mdiServerOutline,
+    mdiSync,
+    mdiTrashCanOutline,
+    mdiUpdate,
+    mdiUpload,
+    mdiVideoOutline,
+  } from '@mdi/js';
   import type { PageData } from './$types';
+  import { t } from 'svelte-i18n';
+  import type { ComponentType, SvelteComponent } from 'svelte';
+  import type { SettingsComponentProps } from '$lib/components/admin-page/settings/admin-settings';
+  import SearchBar from '$lib/components/elements/search-bar.svelte';
 
   export let data: PageData;
 
   let config = data.configs;
   let handleSave: (update: Partial<SystemConfigDto>) => Promise<void>;
 
-  type Settings =
-    | typeof AuthSettings
-    | typeof JobSettings
-    | typeof LibrarySettings
-    | typeof LoggingSettings
-    | typeof MachineLearningSettings
-    | typeof MapSettings
-    | typeof ServerSettings
-    | typeof StorageTemplateSettings
-    | typeof ThemeSettings
-    | typeof ImageSettings
-    | typeof TrashSettings
-    | typeof NewVersionCheckSettings
-    | typeof NotificationSettings
-    | typeof FFmpegSettings
-    | typeof UserSettings;
+  type SettingsComponent = ComponentType<SvelteComponent<SettingsComponentProps>>;
 
   const downloadConfig = () => {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
@@ -75,102 +86,132 @@
   };
 
   const settings: Array<{
-    item: Settings;
+    component: SettingsComponent;
     title: string;
     subtitle: string;
     key: string;
+    icon: string;
   }> = [
     {
-      item: AuthSettings,
-      title: 'Authentication Settings',
-      subtitle: 'Manage password, OAuth, and other authentication settings',
-      key: 'image',
+      component: AuthSettings,
+      title: $t('admin.authentication_settings'),
+      subtitle: $t('admin.authentication_settings_description'),
+      key: 'authentication',
+      icon: mdiLockOutline,
     },
     {
-      item: ImageSettings,
-      title: 'Image Settings',
-      subtitle: 'Manage the quality and resolution of generated images',
+      component: ImageSettings,
+      title: $t('admin.image_settings'),
+      subtitle: $t('admin.image_settings_description'),
       key: 'image',
+      icon: mdiImageOutline,
     },
     {
-      item: JobSettings,
-      title: 'Job Settings',
-      subtitle: 'Manage job concurrency',
+      component: JobSettings,
+      title: $t('admin.job_settings'),
+      subtitle: $t('admin.job_settings_description'),
       key: 'job',
+      icon: mdiSync,
     },
     {
-      item: LibrarySettings,
-      title: 'External Library',
-      subtitle: 'Manage external library settings',
+      component: MetadataSettings,
+      title: $t('admin.metadata_settings'),
+      subtitle: $t('admin.metadata_settings_description'),
+      key: 'metadata',
+      icon: mdiDatabaseOutline,
+    },
+    {
+      component: LibrarySettings,
+      title: $t('admin.library_settings'),
+      subtitle: $t('admin.library_settings_description'),
       key: 'external-library',
+      icon: mdiBookshelf,
     },
     {
-      item: LoggingSettings,
-      title: 'Logging',
-      subtitle: 'Manage log settings',
+      component: LoggingSettings,
+      title: $t('admin.logging_settings'),
+      subtitle: $t('admin.manage_log_settings'),
       key: 'logging',
+      icon: mdiFileDocumentOutline,
     },
     {
-      item: MachineLearningSettings,
-      title: 'Machine Learning Settings',
-      subtitle: 'Manage machine learning features and settings',
+      component: MachineLearningSettings,
+      title: $t('admin.machine_learning_settings'),
+      subtitle: $t('admin.machine_learning_settings_description'),
       key: 'machine-learning',
+      icon: mdiRobotOutline,
     },
     {
-      item: MapSettings,
-      title: 'Map & GPS Settings',
-      subtitle: 'Manage map related features and setting',
+      component: MapSettings,
+      title: $t('admin.map_gps_settings'),
+      subtitle: $t('admin.map_gps_settings_description'),
       key: 'location',
+      icon: mdiMapMarkerOutline,
     },
     {
-      item: NotificationSettings,
-      title: 'Notification Settings',
-      subtitle: 'Manage notification settings, including email',
+      component: NotificationSettings,
+      title: $t('admin.notification_settings'),
+      subtitle: $t('admin.notification_settings_description'),
       key: 'notifications',
+      icon: mdiBellOutline,
     },
     {
-      item: ServerSettings,
-      title: 'Server Settings',
-      subtitle: 'Manage server settings',
+      component: ServerSettings,
+      title: $t('admin.server_settings'),
+      subtitle: $t('admin.server_settings_description'),
       key: 'server',
+      icon: mdiServerOutline,
     },
     {
-      item: StorageTemplateSettings,
-      title: 'Storage Template',
-      subtitle: 'Manage the folder structure and file name of the upload asset',
+      component: StorageTemplateSettings,
+      title: $t('admin.storage_template_settings'),
+      subtitle: $t('admin.storage_template_settings_description'),
       key: 'storage-template',
+      icon: mdiFolderOutline,
     },
     {
-      item: ThemeSettings,
-      title: 'Theme Settings',
-      subtitle: 'Manage customization of the Immich web interface',
+      component: ThemeSettings,
+      title: $t('admin.theme_settings'),
+      subtitle: $t('admin.theme_settings_description'),
       key: 'theme',
+      icon: mdiPaletteOutline,
     },
     {
-      item: TrashSettings,
-      title: 'Trash Settings',
-      subtitle: 'Manage trash settings',
+      component: TrashSettings,
+      title: $t('admin.trash_settings'),
+      subtitle: $t('admin.trash_settings_description'),
       key: 'trash',
+      icon: mdiTrashCanOutline,
     },
     {
-      item: UserSettings,
-      title: 'User Settings',
-      subtitle: 'Manage user settings',
+      component: UserSettings,
+      title: $t('admin.user_settings'),
+      subtitle: $t('admin.user_settings_description'),
       key: 'user-settings',
+      icon: mdiAccountOutline,
     },
     {
-      item: NewVersionCheckSettings,
-      title: 'Version Check',
-      subtitle: 'Enable/disable the new version notification',
+      component: NewVersionCheckSettings,
+      title: $t('admin.version_check_settings'),
+      subtitle: $t('admin.version_check_settings_description'),
       key: 'version-check',
+      icon: mdiUpdate,
     },
     {
-      item: FFmpegSettings,
-      title: 'Video Transcoding Settings',
-      subtitle: 'Manage the resolution and encoding information of the video files',
+      component: FFmpegSettings,
+      title: $t('admin.transcoding_settings'),
+      subtitle: $t('admin.transcoding_settings_description'),
       key: 'video-transcoding',
+      icon: mdiVideoOutline,
     },
   ];
+
+  let searchQuery = '';
+
+  $: filteredSettings = settings.filter(({ title, subtitle }) => {
+    const query = searchQuery.toLowerCase();
+    return title.toLowerCase().includes(query) || subtitle.toLowerCase().includes(query);
+  });
 </script>
 
 <input bind:this={inputElement} type="file" accept=".json" style="display: none" on:change={uploadConfig} />
@@ -180,43 +221,50 @@
     <div class="flex flex-row items-center gap-2 bg-gray-100 p-3 dark:bg-gray-800">
       <Icon path={mdiAlert} class="text-yellow-400" size={18} />
       <h2 class="text-md text-immich-primary dark:text-immich-dark-primary">
-        Config is currently set by a config file
+        {$t('admin.config_set_by_file')}
       </h2>
     </div>
   {/if}
 
   <UserPageLayout title={data.meta.title} admin>
     <div class="flex justify-end gap-2" slot="buttons">
+      <div class="hidden lg:block">
+        <SearchBar placeholder={$t('search_settings')} bind:name={searchQuery} showLoadingSpinner={false} />
+      </div>
       <LinkButton on:click={() => copyToClipboard(JSON.stringify(config, null, 2))}>
         <div class="flex place-items-center gap-2 text-sm">
           <Icon path={mdiContentCopy} size="18" />
-          Copy to Clipboard
+          {$t('copy_to_clipboard')}
         </div>
       </LinkButton>
       <LinkButton on:click={() => downloadConfig()}>
         <div class="flex place-items-center gap-2 text-sm">
           <Icon path={mdiDownload} size="18" />
-          Export as JSON
+          {$t('export_as_json')}
         </div>
       </LinkButton>
-      <LinkButton on:click={() => inputElement?.click()}>
-        <div class="flex place-items-center gap-2 text-sm">
-          <Icon path={mdiUpload} size="18" />
-          Import from JSON
-        </div>
-      </LinkButton>
+      {#if !$featureFlags.configFile}
+        <LinkButton on:click={() => inputElement?.click()}>
+          <div class="flex place-items-center gap-2 text-sm">
+            <Icon path={mdiUpload} size="18" />
+            {$t('import_from_json')}
+          </div>
+        </LinkButton>
+      {/if}
     </div>
 
     <AdminSettings bind:config let:handleReset bind:handleSave let:savedConfig let:defaultConfig>
       <section id="setting-content" class="flex place-content-center sm:mx-4">
-        <section class="w-full pb-28 sm:w-5/6 md:w-[850px]">
+        <section class="w-full pb-28 sm:w-5/6 md:w-[896px]">
+          <div class="block lg:hidden">
+            <SearchBar placeholder={$t('search_settings')} bind:name={searchQuery} showLoadingSpinner={false} />
+          </div>
           <SettingAccordionState queryParam={QueryParameter.IS_OPEN}>
-            {#each settings as { item, title, subtitle, key }}
-              <SettingAccordion {title} {subtitle} {key}>
-                <svelte:component
-                  this={item}
-                  on:save={({ detail }) => handleSave(detail)}
-                  on:reset={({ detail }) => handleReset(detail)}
+            {#each filteredSettings as { component: Component, title, subtitle, key, icon } (key)}
+              <SettingAccordion {title} {subtitle} {key} {icon}>
+                <Component
+                  onSave={(config) => handleSave(config)}
+                  onReset={(options) => handleReset(options)}
                   disabled={$featureFlags.configFile}
                   {defaultConfig}
                   {config}

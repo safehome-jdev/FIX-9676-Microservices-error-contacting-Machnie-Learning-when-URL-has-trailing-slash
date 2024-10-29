@@ -1,5 +1,5 @@
 import { Writable } from 'node:stream';
-import { ImageFormat, TranscodeTarget, VideoCodec } from 'src/config';
+import { ImageFormat, TranscodeTarget, VideoCodec } from 'src/enum';
 
 export const IMediaRepository = 'IMediaRepository';
 
@@ -10,12 +10,44 @@ export interface CropOptions {
   height: number;
 }
 
-export interface ThumbnailOptions {
-  size: number;
+export interface ImageOptions {
   format: ImageFormat;
-  colorspace: string;
   quality: number;
+  size: number;
+}
+
+export interface RawImageInfo {
+  width: number;
+  height: number;
+  channels: 1 | 2 | 3 | 4;
+}
+
+interface DecodeImageOptions {
+  colorspace: string;
   crop?: CropOptions;
+  processInvalidImages: boolean;
+  raw?: RawImageInfo;
+}
+
+export interface DecodeToBufferOptions extends DecodeImageOptions {
+  size: number;
+}
+
+export type GenerateThumbnailOptions = ImageOptions & DecodeImageOptions;
+
+export type GenerateThumbnailFromBufferOptions = GenerateThumbnailOptions & { raw: RawImageInfo };
+
+export type GenerateThumbhashOptions = DecodeImageOptions;
+
+export type GenerateThumbhashFromBufferOptions = GenerateThumbhashOptions & { raw: RawImageInfo };
+
+export interface GenerateThumbnailsOptions {
+  colorspace: string;
+  crop?: CropOptions;
+  preview?: ImageOptions;
+  processInvalidImages: boolean;
+  thumbhash?: boolean;
+  thumbnail?: ImageOptions;
 }
 
 export interface VideoStreamInfo {
@@ -47,16 +79,24 @@ export interface ImageDimensions {
   height: number;
 }
 
+export interface InputDimensions extends ImageDimensions {
+  inputPath: string;
+}
+
 export interface VideoInfo {
   format: VideoFormat;
   videoStreams: VideoStreamInfo[];
   audioStreams: AudioStreamInfo[];
 }
 
-export interface TranscodeOptions {
+export interface TranscodeCommand {
   inputOptions: string[];
   outputOptions: string[];
   twoPass: boolean;
+  progress: {
+    frameCount: number;
+    percentInterval: number;
+  };
 }
 
 export interface BitrateDistribution {
@@ -66,22 +106,34 @@ export interface BitrateDistribution {
   unit: string;
 }
 
+export interface ImageBuffer {
+  data: Buffer;
+  info: RawImageInfo;
+}
+
 export interface VideoCodecSWConfig {
-  getOptions(target: TranscodeTarget, videoStream: VideoStreamInfo, audioStream: AudioStreamInfo): TranscodeOptions;
+  getCommand(target: TranscodeTarget, videoStream: VideoStreamInfo, audioStream: AudioStreamInfo): TranscodeCommand;
 }
 
 export interface VideoCodecHWConfig extends VideoCodecSWConfig {
   getSupportedCodecs(): Array<VideoCodec>;
 }
 
+export interface ProbeOptions {
+  countFrames: boolean;
+}
+
 export interface IMediaRepository {
   // image
   extract(input: string, output: string): Promise<boolean>;
-  generateThumbnail(input: string | Buffer, output: string, options: ThumbnailOptions): Promise<void>;
-  generateThumbhash(imagePath: string): Promise<Buffer>;
+  decodeImage(input: string, options: DecodeToBufferOptions): Promise<ImageBuffer>;
+  generateThumbnail(input: string, options: GenerateThumbnailOptions, outputFile: string): Promise<void>;
+  generateThumbnail(input: Buffer, options: GenerateThumbnailFromBufferOptions, outputFile: string): Promise<void>;
+  generateThumbhash(input: string, options: GenerateThumbhashOptions): Promise<Buffer>;
+  generateThumbhash(input: Buffer, options: GenerateThumbhashFromBufferOptions): Promise<Buffer>;
   getImageDimensions(input: string): Promise<ImageDimensions>;
 
   // video
-  probe(input: string): Promise<VideoInfo>;
-  transcode(input: string, output: string | Writable, options: TranscodeOptions): Promise<void>;
+  probe(input: string, options?: ProbeOptions): Promise<VideoInfo>;
+  transcode(input: string, output: string | Writable, command: TranscodeCommand): Promise<void>;
 }

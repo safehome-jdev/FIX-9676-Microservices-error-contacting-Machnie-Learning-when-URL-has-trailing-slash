@@ -8,6 +8,7 @@
   import MenuOption from '../../shared-components/context-menu/menu-option.svelte';
   import { getAssetControlContext } from '../asset-select-control-bar.svelte';
   import { mdiCalendarEditOutline } from '@mdi/js';
+  import { t } from 'svelte-i18n';
   export let menuItem = false;
   const { clearSelect, getOwnedAssets } = getAssetControlContext();
 
@@ -20,19 +21,15 @@
     try {
       await updateAssets({ assetBulkUpdateDto: { ids, dateTimeOriginal } });
     } catch (error) {
-      handleError(error, 'Unable to change date');
+      handleError(error, $t('errors.unable_to_change_date'));
     }
     clearSelect();
   };
 </script>
 
 {#if menuItem}
-  <MenuOption text="Change date" icon={mdiCalendarEditOutline} on:click={() => (isShowChangeDate = true)} />
+  <MenuOption text={$t('change_date')} icon={mdiCalendarEditOutline} onClick={() => (isShowChangeDate = true)} />
 {/if}
 {#if isShowChangeDate}
-  <ChangeDate
-    initialDate={DateTime.now()}
-    on:confirm={({ detail: date }) => handleConfirm(date)}
-    on:cancel={() => (isShowChangeDate = false)}
-  />
+  <ChangeDate initialDate={DateTime.now()} onConfirm={handleConfirm} onCancel={() => (isShowChangeDate = false)} />
 {/if}

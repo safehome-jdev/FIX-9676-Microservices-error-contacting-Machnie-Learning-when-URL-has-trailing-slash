@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import { handleError } from '../../utils/handle-error';
   import Button from '../elements/buttons/button.svelte';
   import LibraryImportPathForm from './library-import-path-form.svelte';
@@ -9,9 +9,11 @@
   import type { ValidateLibraryImportPathResponseDto } from '@immich/sdk';
   import { NotificationType, notificationController } from '../shared-components/notification/notification';
   import CircleIconButton from '$lib/components/elements/buttons/circle-icon-button.svelte';
-  import { s } from '$lib/utils';
+  import { t } from 'svelte-i18n';
 
   export let library: LibraryResponseDto;
+  export let onCancel: () => void;
+  export let onSubmit: (library: LibraryResponseDto) => void;
 
   let addImportPath = false;
   let editImportPath: number | null = null;
@@ -53,29 +55,16 @@
     if (failedPaths === 0) {
       if (notifyIfSuccessful) {
         notificationController.show({
-          message: `All paths validated successfully`,
+          message: $t('admin.paths_validated_successfully'),
           type: NotificationType.Info,
         });
       }
     } else {
       notificationController.show({
-        message: `${failedPaths} path${s(failedPaths)} failed validation`,
+        message: $t('errors.paths_validation_failed', { values: { paths: failedPaths } }),
         type: NotificationType.Warning,
       });
     }
-  };
-
-  const dispatch = createEventDispatcher<{
-    cancel: void;
-    submit: Partial<LibraryResponseDto>;
-  }>();
-
-  const handleCancel = () => {
-    dispatch('cancel');
-  };
-
-  const handleSubmit = () => {
-    dispatch('submit', { ...library });
   };
 
   const handleAddImportPath = async () => {
@@ -94,7 +83,7 @@
         await revalidate(false);
       }
     } catch (error) {
-      handleError(error, 'Unable to add import path');
+      handleError(error, $t('errors.unable_to_add_import_path'));
     } finally {
       addImportPath = false;
       importPathToAdd = null;
@@ -120,7 +109,7 @@
       }
     } catch (error) {
       editImportPath = null;
-      handleError(error, 'Unable to edit import path');
+      handleError(error, $t('errors.unable_to_edit_import_path'));
     } finally {
       editImportPath = null;
     }
@@ -140,7 +129,7 @@
       library.importPaths = library.importPaths.filter((path) => path != pathToDelete);
       await handleValidation();
     } catch (error) {
-      handleError(error, 'Unable to delete import path');
+      handleError(error, $t('errors.unable_to_delete_import_path'));
     } finally {
       editImportPath = null;
     }
@@ -149,12 +138,12 @@
 
 {#if addImportPath}
   <LibraryImportPathForm
-    title="Add import path"
-    submitText="Add"
+    title={$t('add_import_path')}
+    submitText={$t('add')}
     bind:importPath={importPathToAdd}
     {importPaths}
-    on:submit={handleAddImportPath}
-    on:cancel={() => {
+    onSubmit={handleAddImportPath}
+    onCancel={() => {
       addImportPath = false;
       importPathToAdd = null;
     }}
@@ -163,20 +152,18 @@
 
 {#if editImportPath != undefined}
   <LibraryImportPathForm
-    title="Edit import path"
-    submitText="Save"
+    title={$t('edit_import_path')}
+    submitText={$t('save')}
     isEditing={true}
     bind:importPath={editedImportPath}
     {importPaths}
-    on:submit={handleEditImportPath}
-    on:delete={handleDeleteImportPath}
-    on:cancel={() => {
-      editImportPath = null;
-    }}
+    onSubmit={handleEditImportPath}
+    onDelete={handleDeleteImportPath}
+    onCancel={() => (editImportPath = null)}
   />
 {/if}
 
-<form on:submit|preventDefault={() => handleSubmit()} autocomplete="off" class="m-4 flex flex-col gap-4">
+<form on:submit|preventDefault={() => onSubmit({ ...library })} autocomplete="off" class="m-4 flex flex-col gap-4">
   <table class="text-left">
     <tbody class="block w-full overflow-y-auto rounded-md border dark:border-immich-dark-gray">
       {#each validatedPaths as validatedPath, listIndex}
@@ -210,7 +197,7 @@
             <CircleIconButton
               color="primary"
               icon={mdiPencilOutline}
-              title="Edit import path"
+              title={$t('edit_import_path')}
               size="16"
               on:click={() => {
                 editImportPath = listIndex;
@@ -229,7 +216,7 @@
       >
         <td class="w-4/5 text-ellipsis px-4 text-sm">
           {#if importPaths.length === 0}
-            No paths added
+            {$t('admin.no_paths_added')}
           {/if}</td
         >
         <td class="w-1/5 text-ellipsis px-4 text-sm"
@@ -238,7 +225,7 @@
             size="sm"
             on:click={() => {
               addImportPath = true;
-            }}>Add path</Button
+            }}>{$t('add_path')}</Button
           ></td
         >
       </tr>
@@ -246,11 +233,13 @@
   </table>
   <div class="flex justify-between w-full">
     <div class="justify-end gap-2">
-      <Button size="sm" color="gray" on:click={() => revalidate()}><Icon path={mdiRefresh} size={20} />Validate</Button>
+      <Button size="sm" color="gray" on:click={() => revalidate()}
+        ><Icon path={mdiRefresh} size={20} />{$t('validate')}</Button
+      >
     </div>
     <div class="justify-end gap-2">
-      <Button size="sm" color="gray" on:click={() => handleCancel()}>Cancel</Button>
-      <Button size="sm" type="submit">Save</Button>
+      <Button size="sm" color="gray" on:click={onCancel}>{$t('cancel')}</Button>
+      <Button size="sm" type="submit">{$t('save')}</Button>
     </div>
   </div>
 </form>

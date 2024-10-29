@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { UploadFieldName } from 'src/dtos/asset.dto';
+import { UploadFieldName } from 'src/dtos/asset-media.dto';
 
 export class CreateProfileImageDto {
   @ApiProperty({ type: 'string', format: 'binary' })
@@ -8,12 +8,6 @@ export class CreateProfileImageDto {
 
 export class CreateProfileImageResponseDto {
   userId!: string;
+  profileChangedAt!: Date;
   profileImagePath!: string;
-}
-
-export function mapCreateProfileImageResponse(userId: string, profileImagePath: string): CreateProfileImageResponseDto {
-  return {
-    userId: userId,
-    profileImagePath: profileImagePath,
-  };
 }

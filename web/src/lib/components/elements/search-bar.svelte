@@ -1,28 +1,28 @@
 <script lang="ts">
   import { mdiClose, mdiMagnify } from '@mdi/js';
-  import { createEventDispatcher } from 'svelte';
   import type { SearchOptions } from '$lib/utils/dipatch';
   import LoadingSpinner from '../shared-components/loading-spinner.svelte';
   import CircleIconButton from '$lib/components/elements/buttons/circle-icon-button.svelte';
+  import { t } from 'svelte-i18n';
 
   export let name: string;
   export let roundedBottom = true;
   export let showLoadingSpinner: boolean;
   export let placeholder: string;
+  export let onSearch: (options: SearchOptions) => void = () => {};
+  export let onReset: () => void = () => {};
 
   let inputRef: HTMLElement;
 
-  const dispatch = createEventDispatcher<{ search: SearchOptions; reset: void }>();
-
   const resetSearch = () => {
     name = '';
-    dispatch('reset');
+    onReset();
     inputRef?.focus();
   };
 
   const handleSearch = (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
-      dispatch('search', { force: true });
+      onSearch({ force: true });
     }
   };
 </script>
@@ -34,10 +34,10 @@
 >
   <CircleIconButton
     icon={mdiMagnify}
-    title="Search"
+    title={$t('search')}
     size="16"
     padding="2"
-    on:click={() => dispatch('search', { force: true })}
+    on:click={() => onSearch({ force: true })}
   />
   <input
     class="w-full gap-2 bg-gray-200 dark:bg-immich-dark-gray dark:text-white"
@@ -46,7 +46,7 @@
     bind:value={name}
     bind:this={inputRef}
     on:keydown={handleSearch}
-    on:input={() => dispatch('search', { force: false })}
+    on:input={() => onSearch({ force: false })}
   />
   {#if showLoadingSpinner}
     <div class="flex place-items-center">
@@ -54,6 +54,6 @@
     </div>
   {/if}
   {#if name}
-    <CircleIconButton icon={mdiClose} title="Clear value" size="16" padding="2" on:click={resetSearch} />
+    <CircleIconButton icon={mdiClose} title={$t('clear_value')} size="16" padding="2" on:click={resetSearch} />
   {/if}
 </div>

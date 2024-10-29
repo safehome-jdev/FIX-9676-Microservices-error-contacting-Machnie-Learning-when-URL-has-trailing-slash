@@ -4,11 +4,9 @@ import { DummyValue, GenerateSql } from 'src/decorators';
 import { LibraryStatsResponseDto } from 'src/dtos/library.dto';
 import { LibraryEntity } from 'src/entities/library.entity';
 import { ILibraryRepository } from 'src/interfaces/library.interface';
-import { Instrumentation } from 'src/utils/instrumentation';
-import { EntityNotFoundError, IsNull, Not } from 'typeorm';
+import { IsNull, Not } from 'typeorm';
 import { Repository } from 'typeorm/repository/Repository.js';
 
-@Instrumentation()
 @Injectable()
 export class LibraryRepository implements ILibraryRepository {
   constructor(@InjectRepository(LibraryEntity) private repository: Repository<LibraryEntity>) {}
@@ -22,21 +20,6 @@ export class LibraryRepository implements ILibraryRepository {
       relations: { owner: true },
       withDeleted,
     });
-  }
-
-  @GenerateSql({ params: [DummyValue.STRING] })
-  existsByName(name: string, withDeleted = false): Promise<boolean> {
-    return this.repository.exist({
-      where: {
-        name,
-      },
-      withDeleted,
-    });
-  }
-
-  @GenerateSql({ params: [DummyValue.UUID] })
-  getCountForUser(ownerId: string): Promise<number> {
-    return this.repository.countBy({ ownerId });
   }
 
   @GenerateSql({ params: [] })
@@ -85,7 +68,7 @@ export class LibraryRepository implements ILibraryRepository {
   }
 
   @GenerateSql({ params: [DummyValue.UUID] })
-  async getStatistics(id: string): Promise<LibraryStatsResponseDto> {
+  async getStatistics(id: string): Promise<LibraryStatsResponseDto | undefined> {
     const stats = await this.repository
       .createQueryBuilder('libraries')
       .addSelect(`COUNT(assets.id) FILTER (WHERE assets.type = 'IMAGE' AND assets.isVisible)`, 'photos')
@@ -98,7 +81,7 @@ export class LibraryRepository implements ILibraryRepository {
       .getRawOne();
 
     if (!stats) {
-      throw new EntityNotFoundError(LibraryEntity, { where: { id } });
+      return;
     }
 
     return {
@@ -107,50 +90,6 @@ export class LibraryRepository implements ILibraryRepository {
       usage: Number(stats.usage),
       total: Number(stats.photos) + Number(stats.videos),
     };
-  }
-
-  @GenerateSql({ params: [DummyValue.UUID] })
-  async getOnlineAssetPaths(libraryId: string): Promise<string[]> {
-    // Return all non-offline asset paths for a given library
-    const rawResults = await this.repository
-      .createQueryBuilder('library')
-      .innerJoinAndSelect('library.assets', 'assets')
-      .where('library.id = :id', { id: libraryId })
-      .andWhere('assets.isOffline = false')
-      .select('assets.originalPath')
-      .getRawMany();
-
-    const results: string[] = [];
-
-    for (const rawPath of rawResults) {
-      results.push(rawPath.assets_originalPath);
-    }
-
-    return results;
-  }
-
-  @GenerateSql({ params: [DummyValue.UUID] })
-  async getAssetIds(libraryId: string, withDeleted = false): Promise<string[]> {
-    const builder = this.repository
-      .createQueryBuilder('library')
-      .innerJoinAndSelect('library.assets', 'assets')
-      .where('library.id = :id', { id: libraryId })
-      .select('assets.id');
-
-    if (withDeleted) {
-      builder.withDeleted();
-    }
-
-    // Return all asset paths for a given library
-    const rawResults = await builder.getRawMany();
-
-    const results: string[] = [];
-
-    for (const rawPath of rawResults) {
-      results.push(rawPath.assets_id);
-    }
-
-    return results;
   }
 
   private async save(library: Partial<LibraryEntity>) {

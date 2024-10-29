@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:bookworm-slim@sha256:d5b82811074b396275ef69aadbf31098257dd8836e231371e9cdb393128e571c as builder
+FROM mambaorg/micromamba:bookworm-slim@sha256:e3797091302382ea841498bc93a7b0a50f7c1448333d5e946d2d1608d0c5f43d AS builder
 
 ENV TRANSFORMERS_CACHE=/cache \
   PYTHONDONTWRITEBYTECODE=1 \

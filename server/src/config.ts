@@ -1,80 +1,24 @@
-import { RegisterQueueOptions } from '@nestjs/bullmq';
 import { ConfigModuleOptions } from '@nestjs/config';
 import { CronExpression } from '@nestjs/schedule';
-import { QueueOptions } from 'bullmq';
 import { Request, Response } from 'express';
-import { RedisOptions } from 'ioredis';
-import Joi from 'joi';
+import Joi, { Root } from 'joi';
 import { CLS_ID, ClsModuleOptions } from 'nestjs-cls';
+import {
+  AudioCodec,
+  Colorspace,
+  CQMode,
+  ImageFormat,
+  ImmichEnvironment,
+  ImmichHeader,
+  LogLevel,
+  ToneMapping,
+  TranscodeHWAccel,
+  TranscodePolicy,
+  VideoCodec,
+  VideoContainer,
+} from 'src/enum';
 import { ConcurrentQueueName, QueueName } from 'src/interfaces/job.interface';
-
-export enum TranscodePolicy {
-  ALL = 'all',
-  OPTIMAL = 'optimal',
-  BITRATE = 'bitrate',
-  REQUIRED = 'required',
-  DISABLED = 'disabled',
-}
-
-export enum TranscodeTarget {
-  NONE,
-  AUDIO,
-  VIDEO,
-  ALL,
-}
-
-export enum VideoCodec {
-  H264 = 'h264',
-  HEVC = 'hevc',
-  VP9 = 'vp9',
-  AV1 = 'av1',
-}
-
-export enum AudioCodec {
-  MP3 = 'mp3',
-  AAC = 'aac',
-  LIBOPUS = 'libopus',
-}
-
-export enum TranscodeHWAccel {
-  NVENC = 'nvenc',
-  QSV = 'qsv',
-  VAAPI = 'vaapi',
-  RKMPP = 'rkmpp',
-  DISABLED = 'disabled',
-}
-
-export enum ToneMapping {
-  HABLE = 'hable',
-  MOBIUS = 'mobius',
-  REINHARD = 'reinhard',
-  DISABLED = 'disabled',
-}
-
-export enum CQMode {
-  AUTO = 'auto',
-  CQP = 'cqp',
-  ICQ = 'icq',
-}
-
-export enum Colorspace {
-  SRGB = 'srgb',
-  P3 = 'p3',
-}
-
-export enum ImageFormat {
-  JPEG = 'jpeg',
-  WEBP = 'webp',
-}
-
-export enum LogLevel {
-  VERBOSE = 'verbose',
-  DEBUG = 'debug',
-  LOG = 'log',
-  WARN = 'warn',
-  ERROR = 'error',
-  FATAL = 'fatal',
-}
+import { ImageOptions } from 'src/interfaces/media.interface';
 
 export interface SystemConfig {
   ffmpeg: {
@@ -85,6 +29,7 @@ export interface SystemConfig {
     acceptedVideoCodecs: VideoCodec[];
     targetAudioCodec: AudioCodec;
     acceptedAudioCodecs: AudioCodec[];
+    acceptedContainers: VideoContainer[];
     targetResolution: string;
     maxBitrate: string;
     bframes: number;
@@ -132,6 +77,11 @@ export interface SystemConfig {
   reverseGeocoding: {
     enabled: boolean;
   };
+  metadata: {
+    faces: {
+      import: boolean;
+    };
+  };
   oauth: {
     autoLaunch: boolean;
     autoRegister: boolean;
@@ -145,6 +95,7 @@ export interface SystemConfig {
     mobileRedirectUri: string;
     scope: string;
     signingAlgorithm: string;
+    profileSigningAlgorithm: string;
     storageLabelClaim: string;
     storageQuotaClaim: string;
   };
@@ -157,11 +108,8 @@ export interface SystemConfig {
     template: string;
   };
   image: {
-    thumbnailFormat: ImageFormat;
-    thumbnailSize: number;
-    previewFormat: ImageFormat;
-    previewSize: number;
-    quality: number;
+    thumbnail: ImageOptions;
+    preview: ImageOptions;
     colorspace: Colorspace;
     extractEmbedded: boolean;
   };
@@ -215,7 +163,8 @@ export const defaults = Object.freeze<SystemConfig>({
     targetVideoCodec: VideoCodec.H264,
     acceptedVideoCodecs: [VideoCodec.H264],
     targetAudioCodec: AudioCodec.AAC,
-    acceptedAudioCodecs: [AudioCodec.AAC, AudioCodec.MP3, AudioCodec.LIBOPUS],
+    acceptedAudioCodecs: [AudioCodec.AAC, AudioCodec.MP3, AudioCodec.LIBOPUS, AudioCodec.PCMS16LE],
+    acceptedContainers: [VideoContainer.MOV, VideoContainer.OGG, VideoContainer.WEBM],
     targetResolution: '720',
     maxBitrate: '0',
     bframes: -1,
@@ -240,7 +189,7 @@ export const defaults = Object.freeze<SystemConfig>({
     [QueueName.SIDECAR]: { concurrency: 5 },
     [QueueName.LIBRARY]: { concurrency: 5 },
     [QueueName.MIGRATION]: { concurrency: 5 },
-    [QueueName.THUMBNAIL_GENERATION]: { concurrency: 5 },
+    [QueueName.THUMBNAIL_GENERATION]: { concurrency: 3 },
     [QueueName.VIDEO_CONVERSION]: { concurrency: 1 },
     [QueueName.NOTIFICATION]: { concurrency: 5 },
   },
@@ -256,8 +205,8 @@ export const defaults = Object.freeze<SystemConfig>({
       modelName: 'ViT-B-32__openai',
     },
     duplicateDetection: {
-      enabled: false,
-      maxDistance: 0.03,
+      enabled: true,
+      maxDistance: 0.01,
     },
     facialRecognition: {
       enabled: true,
@@ -269,11 +218,16 @@ export const defaults = Object.freeze<SystemConfig>({
   },
   map: {
     enabled: true,
-    lightStyle: '',
-    darkStyle: '',
+    lightStyle: 'https://tiles.immich.cloud/v1/style/light.json',
+    darkStyle: 'https://tiles.immich.cloud/v1/style/dark.json',
   },
   reverseGeocoding: {
     enabled: true,
+  },
+  metadata: {
+    faces: {
+      import: false,
+    },
   },
   oauth: {
     autoLaunch: false,
@@ -288,6 +242,7 @@ export const defaults = Object.freeze<SystemConfig>({
     mobileRedirectUri: '',
     scope: 'openid email profile',
     signingAlgorithm: 'RS256',
+    profileSigningAlgorithm: 'none',
     storageLabelClaim: 'preferred_username',
     storageQuotaClaim: 'immich_quota',
   },
@@ -300,11 +255,16 @@ export const defaults = Object.freeze<SystemConfig>({
     template: '{{y}}/{{y}}-{{MM}}-{{dd}}/{{filename}}',
   },
   image: {
-    thumbnailFormat: ImageFormat.WEBP,
-    thumbnailSize: 250,
-    previewFormat: ImageFormat.JPEG,
-    previewSize: 1440,
-    quality: 80,
+    thumbnail: {
+      format: ImageFormat.WEBP,
+      size: 250,
+      quality: 80,
+    },
+    preview: {
+      format: ImageFormat.JPEG,
+      size: 1440,
+      quality: 80,
+    },
     colorspace: Colorspace.P3,
     extractEmbedded: false,
   },
@@ -360,7 +320,10 @@ export const immichAppConfig: ConfigModuleOptions = {
   envFilePath: '.env',
   isGlobal: true,
   validationSchema: Joi.object({
-    IMMICH_ENV: Joi.string().optional().valid('development', 'production').default('production'),
+    IMMICH_ENV: Joi.string()
+      .optional()
+      .valid(...Object.values(ImmichEnvironment))
+      .default(ImmichEnvironment.PRODUCTION),
     IMMICH_LOG_LEVEL: Joi.string()
       .optional()
       .valid(...Object.values(LogLevel)),
@@ -373,57 +336,40 @@ export const immichAppConfig: ConfigModuleOptions = {
     DB_SKIP_MIGRATIONS: Joi.boolean().optional().default(false),
 
     IMMICH_PORT: Joi.number().optional(),
-    IMMICH_METRICS_PORT: Joi.number().optional(),
+    IMMICH_API_METRICS_PORT: Joi.number().optional(),
+    IMMICH_MICROSERVICES_METRICS_PORT: Joi.number().optional(),
+
+    IMMICH_TRUSTED_PROXIES: Joi.extend((joi: Root) => ({
+      type: 'stringArray',
+      base: joi.array(),
+      coerce: (value) => (value.split ? value.split(',') : value),
+    }))
+      .stringArray()
+      .single()
+      .items(
+        Joi.string().ip({
+          version: ['ipv4', 'ipv6'],
+          cidr: 'optional',
+        }),
+      ),
 
     IMMICH_METRICS: Joi.boolean().optional().default(false),
-    IMMICH_HOST_METRICS: Joi.boolean().optional().default(false),
-    IMMICH_API_METRICS: Joi.boolean().optional().default(false),
-    IMMICH_IO_METRICS: Joi.boolean().optional().default(false),
+    IMMICH_HOST_METRICS: Joi.boolean().optional(),
+    IMMICH_API_METRICS: Joi.boolean().optional(),
+    IMMICH_IO_METRICS: Joi.boolean().optional(),
   }),
 };
-
-function parseRedisConfig(): RedisOptions {
-  const redisUrl = process.env.REDIS_URL;
-  if (redisUrl && redisUrl.startsWith('ioredis://')) {
-    try {
-      const decodedString = Buffer.from(redisUrl.slice(10), 'base64').toString();
-      return JSON.parse(decodedString);
-    } catch (error) {
-      throw new Error(`Failed to decode redis options: ${error}`);
-    }
-  }
-  return {
-    host: process.env.REDIS_HOSTNAME || 'redis',
-    port: Number.parseInt(process.env.REDIS_PORT || '6379'),
-    db: Number.parseInt(process.env.REDIS_DBINDEX || '0'),
-    username: process.env.REDIS_USERNAME || undefined,
-    password: process.env.REDIS_PASSWORD || undefined,
-    path: process.env.REDIS_SOCKET || undefined,
-  };
-}
-
-export const bullConfig: QueueOptions = {
-  prefix: 'immich_bull',
-  connection: parseRedisConfig(),
-  defaultJobOptions: {
-    attempts: 3,
-    removeOnComplete: true,
-    removeOnFail: false,
-  },
-};
-
-export const bullQueues: RegisterQueueOptions[] = Object.values(QueueName).map((name) => ({ name }));
 
 export const clsConfig: ClsModuleOptions = {
   middleware: {
     mount: true,
     generateId: true,
     setup: (cls, req: Request, res: Response) => {
-      const headerValues = req.headers['x-immich-cid'];
+      const headerValues = req.headers[ImmichHeader.CID];
       const headerValue = Array.isArray(headerValues) ? headerValues[0] : headerValues;
       const cid = headerValue || cls.get(CLS_ID);
       cls.set(CLS_ID, cid);
-      res.header('x-immich-cid', cid);
+      res.header(ImmichHeader.CID, cid);
     },
   },
 };
